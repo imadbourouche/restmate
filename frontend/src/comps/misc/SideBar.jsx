@@ -9,6 +9,87 @@ import Tippy from "@tippyjs/react";
 import EnvVar from "../envars/EnvVar";
 import SettingModal from "../settings/SettingModal";
 import { useHotkeys } from "react-hotkeys-hook";
+import { DndContext, DragOverlay, useDroppable, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
+import { toast } from "react-toastify";
+
+// Wrapper component for collections with drag and drop
+const CollectionsWrapper = ({ cols }) => {
+  const [activeId, setActiveId] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    // Check if dragging a request
+    if (active.data.current?.type === 'request' && over.data.current?.type === 'collection') {
+      const request = active.data.current.req;
+      const targetCollectionId = over.id;
+
+      // Don't move if it's the same collection
+      if (request.coll_id === targetCollectionId) return;
+
+      // Move the request
+      const rsp = await useStore.getState().moveReq(request.id, request.coll_id, targetCollectionId);
+      if (rsp) {
+        toast.success("Request moved successfully!");
+      } else {
+        toast.error("Error! Cannot move Request.");
+      }
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+  };
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div id="colls-map" className="py-2 overflow-y-auto" style={{ height: "calc(100% - 48px)" }}>
+        {cols?.length ? cols.map((c) => <DroppableCollection key={c.id} col={c} />) : null}
+      </div>
+      <DragOverlay>
+        {activeId ? <div className="bg-sec text-txtprim p-2 rounded shadow-lg">Dragging...</div> : null}
+      </DragOverlay>
+    </DndContext>
+  );
+};
+
+// Wrapper to make collections droppable
+const DroppableCollection = ({ col }) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: col.id,
+    data: {
+      type: 'collection',
+      col: col,
+    },
+  });
+
+  return (
+    <div ref={setNodeRef} className={isOver ? 'bg-sec bg-opacity-50' : ''}>
+      <Collection col={col} />
+    </div>
+  );
+};
+
 
 const SideBar = () => {
   const [newColModal, setnewColModal] = useState(false);
@@ -95,9 +176,7 @@ const SideBar = () => {
               </div>
             </Tippy>
           </div>
-          <div id="colls-map" className="py-2 overflow-y-auto" style={{ height: "calc(100% - 48px)" }}>
-            {cols?.length ? cols.map((c) => <Collection key={c.id} col={c} />) : null}
-          </div>
+          <CollectionsWrapper cols={cols} />
         </div>
       </div>
       <div style={{ width: sideBarType === "env" ? openW : 0 }} className="overflow-hidden h-full" id="env-bar">

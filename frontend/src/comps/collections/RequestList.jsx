@@ -1,4 +1,4 @@
-import { LuCopy, LuEllipsis, LuExternalLink, LuMove, LuPencil, LuTrash } from "react-icons/lu";
+import { LuCopy, LuEllipsis, LuExternalLink, LuMove, LuPencil, LuTrash, LuGripVertical } from "react-icons/lu";
 import { useStore } from "../../store/store";
 import { getReqType } from "../../utils/helper";
 import { Menu, MenuItem } from "@szhsin/react-menu";
@@ -6,10 +6,25 @@ import { useState } from "react";
 import RenameReq from "./RenameReq";
 import MoveReq from "./MoveReq";
 import { toast } from "react-toastify";
+import { useDraggable } from "@dnd-kit/core";
 
-const RequestList = ({ req }) => {
+const RequestList = ({ req, depth = 0 }) => {
   const [renameModal, setRenameModal] = useState(false);
   const [moveReqModal, setmoveReqModal] = useState(false);
+
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: req.id,
+    data: {
+      type: 'request',
+      req: req,
+    },
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.5 : 1,
+  } : undefined;
+
   const onDeleteReq = async () => {
     let rsp = await useStore.getState().deleteReq(req.coll_id, req.id);
     if (rsp) {
@@ -18,8 +33,23 @@ const RequestList = ({ req }) => {
       toast.error("Error! Cannot delete Request.");
     }
   };
+
+  const paddingLeft = `${depth * 12 + 28}px`;
+
   return (
-    <div key={req.id} className="text-txtprim hover:bg-sec hover:text-lit pl-7 py-1 cursor-pointer group flex items-center">
+    <div
+      key={req.id}
+      ref={setNodeRef}
+      style={{ ...style, paddingLeft }}
+      className={`text-txtprim hover:bg-sec hover:text-lit py-1 cursor-pointer group flex items-center ${isDragging ? 'opacity-50' : ''}`}
+    >
+      <div
+        className="mr-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100"
+        {...listeners}
+        {...attributes}
+      >
+        <LuGripVertical size="16" />
+      </div>
       <div className="grow overflow-hidden flex items-center" onClick={() => useStore.getState().openTab(req)}>
         <div className="mr-2 text-xs">{getReqType(req.method)}</div>
         <p className="truncate whitespace-nowrap overflow-ellipsis text-sm" style={{ width: "90%" }}>
