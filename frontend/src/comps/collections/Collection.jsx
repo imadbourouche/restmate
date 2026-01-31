@@ -1,5 +1,5 @@
 import { useCollapse } from "react-collapsed";
-import { LuChevronDown, LuChevronRight, LuDownload, LuEllipsis, LuPencil, LuPlus, LuTrash } from "react-icons/lu";
+import { LuChevronDown, LuChevronRight, LuDownload, LuEllipsis, LuPencil, LuPlus, LuTrash, LuFolderPlus } from "react-icons/lu";
 import { Menu, MenuItem } from "@szhsin/react-menu";
 import RequestList from "./RequestList";
 import { useState } from "react";
@@ -8,8 +8,9 @@ import { ExportCollection } from "../../../wailsjs/go/main/App";
 import { toast } from "react-toastify";
 import { useStore } from "../../store/store";
 import { memo } from "react";
+import { nanoid } from "nanoid";
 
-const Collection = ({ col }) => {
+const Collection = ({ col, depth = 0 }) => {
   const [renameCol, setRenameCol] = useState(false);
   const { getCollapseProps, getToggleProps, isExpanded } = useCollapse();
 
@@ -21,6 +22,7 @@ const Collection = ({ col }) => {
       toast.error("Error! Cannot export Collection.");
     }
   };
+
   const onDeleteCol = async () => {
     let rsp = await useStore.getState().deleteCol(col.id);
     if (rsp) {
@@ -29,10 +31,32 @@ const Collection = ({ col }) => {
       toast.error("Error! Cannot delete Collection.");
     }
   };
+
+  const onCreateSubCollection = async () => {
+    const name = prompt("Enter sub-collection name:");
+    if (name && name.trim()) {
+      let rsp = await useStore.getState().addColsWithParent({
+        id: nanoid(),
+        name: name.trim(),
+        parent_id: col.id
+      });
+      if (rsp) {
+        toast.success("Sub-collection created successfully!");
+      } else {
+        toast.error("Error! Cannot create sub-collection.");
+      }
+    }
+  };
+
+  const paddingLeft = `${depth * 12 + 8}px`;
+
   return (
     <div className="text-txtprim">
-      <div className={`${isExpanded ? "bg-sec text-lit" : ""} flex items-center py-1 hover:bg-sec hover:text-lit group`}>
-        <div className="pl-2 pr-1 cursor-pointer" {...getToggleProps()}>
+      <div
+        className={`${isExpanded ? "bg-sec text-lit" : ""} flex items-center py-1 hover:bg-sec hover:text-lit group`}
+        style={{ paddingLeft }}
+      >
+        <div className="pr-1 cursor-pointer" {...getToggleProps()}>
           {isExpanded ? <LuChevronDown size="18" /> : <LuChevronRight size="18" />}
         </div>
         <div className="grow overflow-hidden cursor-pointer" {...getToggleProps()}>
@@ -62,6 +86,10 @@ const Collection = ({ col }) => {
             <LuPlus />
             Add Request
           </MenuItem>
+          <MenuItem className="text-txtprim text-sm gap-x-2" onClick={onCreateSubCollection}>
+            <LuFolderPlus />
+            Add Sub-Collection
+          </MenuItem>
           <MenuItem className="text-txtprim text-sm gap-x-2" onClick={() => exportCollection()}>
             <LuDownload />
             Export
@@ -74,9 +102,13 @@ const Collection = ({ col }) => {
       </div>
       <section {...getCollapseProps()}>
         {col.requests && col.requests.length ? (
-          col.requests.map((a) => <RequestList req={a} key={a.id} />)
-        ) : (
-          <div className="pl-7">
+          col.requests.map((a) => <RequestList req={a} key={a.id} depth={depth + 1} />)
+        ) : null}
+        {col.collections && col.collections.length ? (
+          col.collections.map((c) => <Collection col={c} key={c.id} depth={depth + 1} />)
+        ) : null}
+        {(!col.requests || !col.requests.length) && (!col.collections || !col.collections.length) && (
+          <div style={{ paddingLeft: `${(depth + 1) * 12 + 28}px` }}>
             <p className="text-sm text-txtsec">No requests found</p>
           </div>
         )}

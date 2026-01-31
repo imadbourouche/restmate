@@ -404,7 +404,6 @@ func (a *App) GetRequest(id, coll_id string) (resp JSResp) {
 }
 
 func (a *App) UpsertRequest(r Request) (resp JSResp) {
-	opr := false
 	if r.CollId == "" || r.ID == "" {
 		resp.Msg = "Error! Cannot save request"
 		return
@@ -420,24 +419,10 @@ func (a *App) UpsertRequest(r Request) (resp JSResp) {
 		resp.Msg = "Error! Cannot save request"
 		return
 	}
-	for i := range c {
-		if c[i].ID == r.CollId {
-			found := false
-			for j := range c[i].Requests {
-				if c[i].Requests[j].ID == r.ID {
-					c[i].Requests[j] = r
-					found = true
-					opr = true
-					break
-				}
-			}
-			if !found {
-				c[i].Requests = append(c[i].Requests, r)
-				opr = true
-			}
-			break
-		}
-	}
+	
+	// Use recursive helper to find and update request
+	opr := upsertRequestInCollections(&c, r)
+	
 	if !opr {
 		resp.Msg = "Error! Cannot save request"
 		return
@@ -457,6 +442,33 @@ func (a *App) UpsertRequest(r Request) (resp JSResp) {
 	resp.Msg = "request saved successfully"
 	resp.Data = collRspSlice
 	return
+}
+
+// Helper function to upsert request in nested collections
+func upsertRequestInCollections(collections *[]Collection, r Request) bool {
+	for i := range *collections {
+		if (*collections)[i].ID == r.CollId {
+			found := false
+			for j := range (*collections)[i].Requests {
+				if (*collections)[i].Requests[j].ID == r.ID {
+					(*collections)[i].Requests[j] = r
+					found = true
+					return true
+				}
+			}
+			if !found {
+				(*collections)[i].Requests = append((*collections)[i].Requests, r)
+				return true
+			}
+		}
+		// Recursively check nested collections
+		if len((*collections)[i].Collections) > 0 {
+			if upsertRequestInCollections(&(*collections)[i].Collections, r) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (a *App) GetCollections() (resp JSResp) {
@@ -479,6 +491,10 @@ func (a *App) GetCollections() (resp JSResp) {
 }
 
 func (a *App) AddCollection(id, name string) (resp JSResp) {
+	return a.AddCollectionWithParent(id, name, "")
+}
+
+func (a *App) AddCollectionWithParent(id, name, parent_id string) (resp JSResp) {
 	if id == "" || name == "" {
 		resp.Msg = "Error! Cannot add collection"
 		return
@@ -494,12 +510,27 @@ func (a *App) AddCollection(id, name string) (resp JSResp) {
 		resp.Msg = "Error! Cannot add collection"
 		return
 	}
+	
 	newCol := Collection{
-		ID:       id,
-		Name:     name,
-		Requests: []Request{},
+		ID:          id,
+		Name:        name,
+		ParentID:    parent_id,
+		Requests:    []Request{},
+		Collections: []Collection{},
 	}
-	c = append(c, newCol)
+	
+	// If parent_id is empty, add to root level
+	if parent_id == "" {
+		c = append(c, newCol)
+	} else {
+		// Find parent collection and add as nested collection
+		added := addNestedCollection(&c, parent_id, newCol)
+		if !added {
+			resp.Msg = "Error! Parent collection not found"
+			return
+		}
+	}
+	
 	b, err := json.Marshal(c)
 	if err != nil {
 		resp.Msg = "Error! Cannot add collection"
@@ -515,6 +546,23 @@ func (a *App) AddCollection(id, name string) (resp JSResp) {
 	resp.Msg = "Collection saved successfully"
 	resp.Data = collRspSlice
 	return
+}
+
+// Helper function to add a nested collection recursively
+func addNestedCollection(collections *[]Collection, parentID string, newCol Collection) bool {
+	for i := range *collections {
+		if (*collections)[i].ID == parentID {
+			(*collections)[i].Collections = append((*collections)[i].Collections, newCol)
+			return true
+		}
+		// Recursively check nested collections
+		if len((*collections)[i].Collections) > 0 {
+			if addNestedCollection(&(*collections)[i].Collections, parentID, newCol) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (a *App) RenameCollection(id, name string) (resp JSResp) {
@@ -770,6 +818,10 @@ func (a *App) DeleteCollection(id string) (resp JSResp) {
 }
 
 func makeCollRsp(c *[]Collection) []CollRsp {
+	return makeCollRspRecursive(c)
+}
+
+func makeCollRspRecursive(c *[]Collection) []CollRsp {
 	collRspSlice := make([]CollRsp, 0, len(*c))
 	for i := range *c {
 		reqRspSlice := make([]ReqRsp, 0, len((*c)[i].Requests))
@@ -784,10 +836,15 @@ func makeCollRsp(c *[]Collection) []CollRsp {
 			})
 		}
 
+		// Recursively process nested collections
+		nestedCollRsp := makeCollRspRecursive(&(*c)[i].Collections)
+
 		collRspSlice = append(collRspSlice, CollRsp{
-			ID:       (*c)[i].ID,
-			Name:     (*c)[i].Name,
-			Requests: reqRspSlice,
+			ID:          (*c)[i].ID,
+			Name:        (*c)[i].Name,
+			ParentID:    (*c)[i].ParentID,
+			Requests:    reqRspSlice,
+			Collections: nestedCollRsp,
 		})
 	}
 	return collRspSlice

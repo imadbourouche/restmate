@@ -37,10 +37,12 @@ type Request struct {
 }
 
 type Collection struct {
-	ID       string    `json:"id"`
-	Name     string    `json:"name"`
-	Schema   string    `json:"schema"`
-	Requests []Request `json:"requests"`
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Schema      string       `json:"schema"`
+	ParentID    string       `json:"parent_id,omitempty"`
+	Requests    []Request    `json:"requests"`
+	Collections []Collection `json:"collections,omitempty"`
 }
 
 type ExportCollection struct {
@@ -71,9 +73,11 @@ type ReqRsp struct {
 	CollId string `json:"coll_id"`
 }
 type CollRsp struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Requests []ReqRsp `json:"requests"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	ParentID    string    `json:"parent_id,omitempty"`
+	Requests    []ReqRsp  `json:"requests"`
+	Collections []CollRsp `json:"collections,omitempty"`
 }
 
 type Env struct {

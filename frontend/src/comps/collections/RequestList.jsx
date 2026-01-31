@@ -7,9 +7,10 @@ import RenameReq from "./RenameReq";
 import MoveReq from "./MoveReq";
 import { toast } from "react-toastify";
 
-const RequestList = ({ req }) => {
+const RequestList = ({ req, depth = 0 }) => {
   const [renameModal, setRenameModal] = useState(false);
   const [moveReqModal, setmoveReqModal] = useState(false);
+
   const onDeleteReq = async () => {
     let rsp = await useStore.getState().deleteReq(req.coll_id, req.id);
     if (rsp) {
@@ -18,8 +19,15 @@ const RequestList = ({ req }) => {
       toast.error("Error! Cannot delete Request.");
     }
   };
+
+  const paddingLeft = `${depth * 12 + 28}px`;
+
   return (
-    <div key={req.id} className="text-txtprim hover:bg-sec hover:text-lit pl-7 py-1 cursor-pointer group flex items-center">
+    <div
+      key={req.id}
+      style={{ paddingLeft }}
+      className="text-txtprim hover:bg-sec hover:text-lit py-1 cursor-pointer group flex items-center"
+    >
       <div className="grow overflow-hidden flex items-center" onClick={() => useStore.getState().openTab(req)}>
         <div className="mr-2 text-xs">{getReqType(req.method)}</div>
         <p className="truncate whitespace-nowrap overflow-ellipsis text-sm" style={{ width: "90%" }}>

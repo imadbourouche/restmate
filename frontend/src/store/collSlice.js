@@ -2,7 +2,7 @@ import { DeleteRequest, DuplicateRequest, ImportCollection } from "../../wailsjs
 import { MoveRequest } from "../../wailsjs/go/main/App";
 import { DeleteCollection } from "../../wailsjs/go/main/App";
 import { RenameRequest } from "../../wailsjs/go/main/App";
-import { AddCollection, GetCollections, RenameCollection, UpsertRequest } from "../../wailsjs/go/main/App";
+import { AddCollection, AddCollectionWithParent, GetCollections, RenameCollection, UpsertRequest } from "../../wailsjs/go/main/App";
 import { nanoid } from "nanoid";
 import { tabSchema } from "./tabSlice";
 import { cleanUpRequest } from "../utils/utils";
@@ -34,6 +34,16 @@ export const createColSlice = (set, get) => ({
   addCols: async (c) => {
     set({ cLoading: true });
     let rsp = await AddCollection(c.id, c.name);
+    if (!rsp.success) {
+      set({ cLoading: false });
+      return false;
+    }
+    set({ cLoading: false, collections: rsp.data });
+    return true;
+  },
+  addColsWithParent: async (c) => {
+    set({ cLoading: true });
+    let rsp = await AddCollectionWithParent(c.id, c.name, c.parent_id || "");
     if (!rsp.success) {
       set({ cLoading: false });
       return false;

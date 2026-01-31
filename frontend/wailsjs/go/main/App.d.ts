@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function AddCollection(arg1:string,arg2:string):Promise<main.JSResp>;
 
+export function AddCollectionWithParent(arg1:string,arg2:string,arg3:string):Promise<main.JSResp>;
+
 export function AddEnv(arg1:string):Promise<main.JSResp>;
 
 export function AddVar(arg1:string,arg2:string,arg3:string):Promise<main.JSResp>;
